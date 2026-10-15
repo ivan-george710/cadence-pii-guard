@@ -11,3 +11,14 @@
 /.phase10b/
 /frontend/.vite/
 /.private_phase11/
+
+# Local environment and credentials
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*.pfx
+.venv/
