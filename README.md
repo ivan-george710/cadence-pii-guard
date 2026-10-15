@@ -29,12 +29,21 @@ REVIEW and unresolved crossing overlaps block `to_text_payload()`. Successful re
 
 ## Setup and verification
 
-Use the existing project virtual environment. The default Presidio analyzer requires its installed spaCy English NLP model; OCR uses RapidOCR/ONNX and Poppler. There is no local LLM installation requirement.
+Use Python 3.13 x64 on Windows. The default Presidio analyzer uses the pinned English spaCy model; scanned/hybrid PDFs also require Poppler on PATH. The application serves its committed React bundle, so Node is needed only for frontend development. No database or local LLM service is required.
 
-```powershell
-.venv/Scripts/python.exe -m pip install -r requirements.txt
-.venv/Scripts/python.exe -m pytest tests -q
+From Windows Command Prompt in the repository root, create `.venv` only if it does not already exist:
+
+```cmd
+py -3.13 -m venv .venv
+call .venv\Scripts\activate.bat
+python -m pip install -r requirements.txt -r requirements-models.txt
+python -m pip check
+python run.py
 ```
+
+Open `http://127.0.0.1:8765/`. For regression tests, install `requirements-dev.txt` and run `python -B -m pytest tests -q -p no:cacheprovider`. See [Windows CMD setup](docs/WINDOWS_CMD_SETUP_GUIDE.md) and [runtime verification results](docs/WINDOWS_RUNTIME_FIX_REPORT.md).
+
+`requirements.txt` contains application dependencies; `requirements-dev.txt` adds test tooling, and `requirements-models.txt` pins `en_core_web_lg`. The original mixed dependency snapshot is retained at `docs/dependencies/requirements-original.txt` for historical reference only; its experimental dependencies are not part of the supported installation.
 
 For the cached real-document diagnostic, with the existing access-restricted `.private_validation` directory:
 
@@ -178,27 +187,24 @@ The primary UI is now React + TypeScript + Vite, with Tailwind, selected shadcn 
 
 ### Build and launch
 
-From this project root on Windows (Node 22.12+ or a supported newer Node; Python from the existing venv):
+For normal execution, use the Python setup above and the committed frontend bundle:
 
-```powershell
-.venv/Scripts/python.exe -m pip install -r requirements.txt
-Set-Location frontend
-npm.cmd ci
-npm.cmd run build
-Set-Location ..
-.venv/Scripts/python.exe run.py
+```cmd
+call .venv\Scripts\activate.bat
+python run.py
 ```
 
 Open **http://127.0.0.1:8765**. `run.py` is unchanged: loopback only, access logs disabled, four-connection limit. Restart an already-running server to load the additive bounded comparison route and restored-audit serialization fix. In-memory review sessions are temporary; save desired audits before a normal restart. Built React files are served from `app/web/static/`; Vite replaces that directory cleanly, so no vanilla production UI remains. No npm dev server is needed after building.
 
 For frontend development, keep the backend on 8765 and in a second terminal run:
 
-```powershell
-Set-Location frontend
-npm.cmd run dev
+```cmd
+cd frontend
+npm ci
+npm run dev
 ```
 
-Open **http://127.0.0.1:5174**. The Vite proxy translates only this trusted local browser Origin for the existing API boundary; foreign Origins are not rewritten. The backend still requires `X-Cadence-Local: 1`. Frontend JSON requests are serialized to respect the existing synchronous local launcher rather than bursting concurrent requests.
+Open **http://127.0.0.1:5174/assets/**. The Vite proxy translates only this trusted local browser Origin for the existing API boundary; foreign Origins are not rewritten. The backend still requires `X-Cadence-Local: 1`. Frontend JSON requests are serialized to respect the existing synchronous local launcher rather than bursting concurrent requests. An intentional `npm run build` replaces `app/web/static`; it is not needed for normal startup.
 
 ### Product workflow
 
@@ -214,22 +220,23 @@ Open **http://127.0.0.1:5174**. The Vite proxy translates only this trusted loca
 
 ### Checks
 
-```powershell
-.venv/Scripts/python.exe -m pytest tests -q
-node --test tests/frontend/core.test.mjs
-Set-Location frontend
-npm.cmd test
-npm.cmd run lint
-npm.cmd run build
-npm.cmd audit
-Set-Location ..
-# Optional real Chrome acceptance, against a freshly started local app:
-$env:CADENCE_UI_URL = 'http://127.0.0.1:8765'
-node tests/frontend/phase10b_browser.mjs
-# Fictional PDF/DOCX/PPTX fixtures; these do not change evaluation evidence:
-.venv/Scripts/python.exe tools/create_phase10b_fixtures.py
-# Set CADENCE_UI_FIXTURE to a generated absolute fixture path.
-# CADENCE_UI_SYNTHETIC=1 also tests exact source selection / MISSED_PII / FALSE_POSITIVE.
+```cmd
+call .venv\Scripts\activate.bat
+python -m pip install -r requirements-dev.txt
+set "PYTHONDONTWRITEBYTECODE=1"
+python -B -m pytest tests -q -p no:cacheprovider
+node --test tests\frontend\core.test.mjs
+cd frontend
+npm test
+npm run lint
+npx tsc --noEmit
+cd ..
+rem Optional real Chrome acceptance against the running backend and fictional fixtures:
+python -B tools\create_phase10b_fixtures.py
+set "CADENCE_UI_URL=http://127.0.0.1:8765"
+set "CADENCE_UI_FIXTURE=%CD%\.private_review_app\phase10b-fixtures\synthetic.pdf"
+set "CADENCE_UI_SYNTHETIC=1"
+node tests\frontend\phase10b_browser.mjs
 ```
 
 Browser evidence/downloads/profiles remain in `.private_review_app/phase10b-ui/`. The default browser acceptance uses the supplied PPTX and records an explicit demonstration override on an uploaded copy; it is not ground truth. `tests/frontend/browser_smoke.mjs` forwards to the React acceptance script. `tools/export_detector_quality.py` regenerates the small aggregate UI metadata without changing the evaluation artifacts or detector.

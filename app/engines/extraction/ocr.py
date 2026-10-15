@@ -99,7 +99,7 @@ class OCREngine:
                 image_path.unlink(missing_ok=True)
 
                 print(
-                    f"  ✓ {len(blocks)} OCR blocks, "
+                    f"  OCR complete: {len(blocks)} OCR blocks, "
                     f"{len(page_text)} characters",
                     flush=True,
                 )

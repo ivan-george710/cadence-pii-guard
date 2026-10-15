@@ -1,0 +1,5 @@
+# Regression tests and synthetic document generation, including runtime.
+-r requirements.txt
+pytest==9.1.1
+httpx==0.28.1
+reportlab==5.0.1
